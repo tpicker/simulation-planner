@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Draft a simulation overview, plan scenes, and export a planning summary.">
+  <meta name="theme-color" content="#132d38">
+  <title>Simulation Planner</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #fff;
+      --ground: #f1f6f4;
+      --line: #dbe6e2;
+      --ink: #16313b;
+      --muted: #516970;
+      --teal: #006b62;
+      --teal-dark: #00534c;
+      --teal-pale: #e4f2ec;
+      --navy: #132d38;
+      --font: "Avenir Next", Avenir, system-ui, sans-serif;
+      font: 100%/1.55 var(--font);
+      color: var(--ink);
+      background: var(--ground);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; }
+    h1, h2, h3, p { margin: 0; }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+    :focus-visible { outline: 3px solid #027c75; outline-offset: 3px; }
+    [hidden] { display: none !important; }
+    a { color: var(--teal-dark); text-underline-offset: .18em; }
+    .wrap { width: min(100% - 4rem, 78rem); margin-inline: auto; }
+    .icon { display: inline-flex; flex: none; width: 1.125rem; height: 1.125rem; }
+    .icon svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .skip { position: absolute; top: .5rem; left: .5rem; transform: translateY(-200%); z-index: 10; border-radius: .4rem; padding: .5rem .75rem; background: white; }
+    .skip:focus { transform: none; }
+
+    .top { background: var(--paper); border-bottom: 1px solid var(--line); }
+    .top-inner { display: flex; min-height: 4.5rem; align-items: center; justify-content: space-between; flex-wrap: wrap; column-gap: 1rem; padding-block: .75rem; }
+    .brand { display: flex; align-items: center; gap: .65rem; font-weight: 700; letter-spacing: -.025em; }
+    .brand-icon { display: grid; place-items: center; width: 2.15rem; height: 2.15rem; color: white; background: var(--teal); border-radius: .62rem; }
+    .toolbar { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+    .save-state { display: inline-flex; align-items: center; gap: .42rem; color: var(--muted); font-size: .875rem; margin-right: .48rem; }
+    .save-state .icon { color: var(--teal); width: .95rem; height: .95rem; }
+    .save-state[data-unavailable] .icon { display: none; }
+    .button { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; min-height: 2.6rem; max-width: 100%; padding: .5rem .82rem; border: 1px solid var(--line); border-radius: .55rem; color: var(--ink); background: var(--paper); font-size: .875rem; font-weight: 700; text-align: center; }
+    .button:hover { background: var(--teal-pale); border-color: #acc9bd; }
+    .button.primary { color: #fff; background: var(--teal); border-color: var(--teal); }
+    .button.primary:hover { background: var(--teal-dark); border-color: var(--teal-dark); }
+    .button.danger { color: white; background: #a43745; border-color: #a43745; }
+    .button.danger:hover { background: #852935; border-color: #852935; }
+    .text-button { display: inline-flex; align-items: center; gap: .4rem; border: 0; border-radius: .35rem; background: transparent; color: var(--muted); padding: .4rem .5rem; font-size: .875rem; font-weight: 700; }
+    .text-button:hover { color: #8b2736; background: #fcf0f1; }
+
+    .hero { position: relative; overflow: hidden; display: flex; align-items: center; min-height: 12.6rem; isolation: isolate; margin: 1.8rem 0 1.55rem; padding: 1.9rem clamp(1.55rem, 4vw, 3.25rem); background: linear-gradient(108deg, #132d38 30%, #17464a 100%); color: #fff; border-radius: 1.1rem; }
+    .hero-copy { position: relative; z-index: 1; max-width: 35rem; }
+    .hero h1 { font: 400 clamp(2.45rem, 5vw, 4rem)/1.05 Georgia, serif; letter-spacing: -.04em; }
+    .hero p { margin-top: .72rem; color: #d2e6e2; max-width: 33rem; }
+    .blueprint { position: absolute; inset: 0 0 0 auto; overflow: hidden; width: 36%; background-image: radial-gradient(#9bd4bd38 1px, transparent 1px); background-size: 15px 15px; mask-image: linear-gradient(90deg, transparent, #000 17%); }
+    .sheet { position: absolute; width: 8.8rem; height: 9.5rem; border: 1px solid #acd9c479; border-radius: .75rem; }
+    .sheet.back { right: 13%; top: 2.6rem; background: #39796e; transform: rotate(19deg); }
+    .sheet.middle { right: 22%; top: 1.9rem; background: #34695f; transform: rotate(-13deg); }
+    .sheet.front { right: 16.5%; top: 1.65rem; display: grid; align-content: center; gap: .8rem; padding: .95rem; background: #bfe1cc; transform: rotate(7deg); box-shadow: 0 10px 24px #10273750; }
+    .sheet.front span { height: .46rem; border-radius: 99px; background: #4b8d7d; margin-left: 1.45rem; position: relative; }
+    .sheet.front span:first-child { height: .68rem; width: 72%; background: #266758; margin: 0 0 .2rem; }
+    .sheet.front span:nth-child(3) { width: 63%; }
+    .sheet.front span:last-child { width: 56%; }
+    .sheet.front span:not(:first-child)::before { content: ""; position: absolute; width: .65rem; height: .65rem; top: -.1rem; left: -1.45rem; border: 1px solid #609a8b; border-radius: .16rem; }
+
+    .workspace { display: grid; grid-template-columns: 15.5rem minmax(0, 1fr); gap: 1.35rem; align-items: start; padding-bottom: 3rem; }
+    .rail { position: sticky; top: 1rem; background: var(--paper); border: 1px solid var(--line); border-radius: .9rem; padding: .9rem .75rem .82rem; }
+    .rail-heading { margin: .14rem .62rem .45rem; color: var(--muted); font-size: .875rem; font-weight: 700; }
+    .rail-group { display: grid; gap: .22rem; }
+    .rail-group + .rail-group { border-top: 1px solid var(--line); margin-top: .75rem; padding-top: .68rem; }
+    .nav-button { width: 100%; display: flex; align-items: center; gap: .64rem; border: 1px solid transparent; border-radius: .5rem; min-height: 2.6rem; padding: .46rem .55rem; text-align: left; color: var(--ink); background: transparent; font-size: .875rem; font-weight: 650; }
+    .nav-button .icon { color: var(--teal); }
+    .nav-button span:last-child { min-width: 0; overflow-wrap: anywhere; }
+    .nav-button:hover { background: #f0f7f4; }
+    .nav-button[aria-current="true"] { background: var(--teal-pale); color: var(--teal-dark); border-color: #d2e7dd; }
+    .scene-nav { display: grid; gap: .22rem; max-height: 36vh; overflow-y: auto; padding: 3px; margin: -3px; }
+    .add-button { color: var(--teal-dark); }
+    .panel { min-width: 0; background: var(--paper); border: 1px solid var(--line); border-radius: .9rem; box-shadow: 0 3px 10px #132d3808; padding: clamp(1.2rem, 3vw, 2.15rem); }
+    .panel-header { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: .55rem 1rem; padding-bottom: 1.2rem; border-bottom: 1px solid var(--line); margin-bottom: 1.35rem; }
+    .panel-header h2 { font-size: clamp(1.35rem, 2.4vw, 1.83rem); line-height: 1.2; letter-spacing: -.032em; }
+    .panel-header h2:focus { outline: none; }
+    .panel-header p { margin-top: .38rem; color: var(--muted); }
+    .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.05rem 1.1rem; }
+    .field-grid > .wide { grid-column: 1 / -1; }
+    .field { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+    .field label { font-weight: 700; font-size: .94rem; }
+    .field input, .field textarea { width: 100%; background: #f8fbfa; color: var(--ink); border: 1px solid #cadbd4; border-radius: .5rem; padding: .62rem .72rem; }
+    .field input::placeholder, .field textarea::placeholder { color: #596f73; opacity: 1; }
+    .field textarea { min-height: 5.5rem; resize: vertical; }
+    .field textarea.tall { min-height: 8rem; }
+    .field input:focus, .field textarea:focus { background: #fff; }
+    .field-group + .field-group { border-top: 1px solid var(--line); margin-top: 1.4rem; padding-top: 1.32rem; }
+    .field-group h3 { font-size: 1.08rem; letter-spacing: -.015em; margin-bottom: .62rem; }
+    .panel-footer { display: flex; justify-content: flex-end; padding-top: 1.2rem; margin-top: 1.5rem; border-top: 1px solid var(--line); }
+    .workflow-guidance { margin-top: 1.55rem; padding-top: 1.2rem; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+    .workflow-guidance details { margin-top: .65rem; border: 1px solid var(--line); border-radius: .52rem; padding: .65rem .85rem; background: #f8fbfa; }
+    .workflow-guidance summary { cursor: pointer; color: var(--teal-dark); font-weight: 700; }
+    .workflow-guidance h3 { font-size: 1.08rem; margin: 1.1rem 0 .45rem; }
+    .workflow-guidance p { margin: .65rem 0; }
+    .workflow-guidance ul, .workflow-guidance ol { margin: .5rem 0; padding-left: 1.6rem; }
+    .workflow-guidance li + li { margin-top: .46rem; }
+    .summary-paper { padding: clamp(.8rem, 2vw, 1.5rem); border: 1px solid var(--line); border-radius: .55rem; background: #f8fbfa; }
+    .summary-paper h3 { font-size: 1.1rem; margin-bottom: .4rem; }
+    .summary-text { display: block; width: 100%; margin: 0; padding: .15rem; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; font: inherit; }
+    .summary-actions { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: .95rem; }
+    dialog { max-width: min(28rem, 100% - 2rem); color: var(--ink); border: 1px solid var(--line); border-radius: .8rem; padding: 1.45rem; box-shadow: 0 8px 40px #132d3833; }
+    dialog::backdrop { background: #10273788; }
+    dialog h2 { font-size: 1.22rem; }
+    dialog p { margin: .45rem 0 1rem; }
+    .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .55rem; }
+    .feedback { position: fixed; bottom: 1.1rem; right: 1.15rem; z-index: 2; max-width: calc(100vw - 2.3rem); padding: .62rem .85rem; border-radius: .5rem; color: white; background: var(--navy); box-shadow: 0 4px 16px #132d382a; font-size: .9rem; overflow-wrap: anywhere; }
+    .feedback:empty { clip-path: inset(50%); width: 1px; height: 1px; padding: 0; }
+    .print-document { display: none; }
+
+    @media (max-width: 63rem) {
+      .blueprint { width: 30%; }
+      .hero-copy { max-width: 67%; }
+      .workspace { grid-template-columns: 12.6rem minmax(0, 1fr); gap: 1rem; }
+    }
+    @media (max-width: 48rem) {
+      .wrap { width: calc(100% - 2rem); }
+      .workspace { grid-template-columns: 1fr; }
+      .rail { position: static; }
+      .rail-group { display: flex; flex-wrap: wrap; }
+      .rail-heading { align-self: center; margin-bottom: .14rem; }
+      .scene-nav { display: contents; }
+      .nav-button { width: auto; }
+      .hero { margin-top: 1rem; min-height: 10rem; }
+      .blueprint { opacity: .55; }
+      .hero-copy { max-width: 85%; }
+      .brand { display: none; }
+      .save-state { margin-right: .3rem; }
+    }
+    @media (max-width: 34rem) {
+      .blueprint { display: none; }
+      .hero-copy { max-width: 100%; }
+      .field-grid { grid-template-columns: 1fr; }
+      .save-state { flex-basis: 100%; }
+    }
+    @media print {
+      @page { margin: .65in; }
+      :root { background: #fff; color: #000; font: 11pt/1.4 system-ui, sans-serif; }
+      body > :not(.print-document) { display: none !important; }
+      .print-document { display: block; }
+      .print-document h1 { font-size: 19pt; line-height: 1.2; margin: 0 0 .3in; }
+      .print-document h2 { font-size: 14pt; margin: .2in 0 .07in; break-after: avoid; }
+      .print-document h3 { font-size: 11pt; margin: .1in 0 .02in; break-after: avoid; }
+      .print-document p { white-space: pre-wrap; overflow-wrap: anywhere; color: #000; orphans: 2; widows: 2; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#editor">Skip to planning form</a>
+  <header class="top">
+    <div class="wrap top-inner">
+      <div class="brand"><span class="brand-icon" id="brand-icon" aria-hidden="true"></span>Course planning</div>
+      <div class="toolbar" role="group" aria-label="Export plan">
+        <span class="save-state" id="save-state"><span id="save-icon" class="icon" aria-hidden="true"></span><span id="save-message">Draft stays in this browser</span></span>
+        <button class="button" type="button" data-action="print"><span class="icon" data-icon="print" aria-hidden="true"></span>Print / Save PDF</button>
+        <button class="button primary" type="button" data-action="copy"><span class="icon" data-icon="copy" aria-hidden="true"></span>Copy summary</button>
+      </div>
+    </div>
+  </header>
+  <main class="wrap">
+    <div class="hero">
+      <div class="hero-copy">
+        <h1>Simulation Planner</h1>
+        <p>Define the learning goals, outline each scene, and plan how students will access your simulation.</p>
+      </div>
+      <div class="blueprint" aria-hidden="true">
+        <div class="sheet back"></div>
+        <div class="sheet middle"></div>
+        <div class="sheet front"><span></span><span></span><span></span><span></span></div>
+      </div>
+    </div>
+    <noscript><p>Enable JavaScript to use the interactive planner, or use the Canvas HTML version.</p></noscript>
+    <div id="workspace" class="workspace" hidden>
+      <nav class="rail" aria-label="Planner sections">
+        <div class="rail-group">
+          <p class="rail-heading">Your plan</p>
+          <button class="nav-button" type="button" data-view="overview"><span class="icon" data-icon="overview" aria-hidden="true"></span><span>Simulation overview</span></button>
+          <div id="scene-nav" class="scene-nav"></div>
+          <button class="nav-button add-button" type="button" data-action="add"><span class="icon" data-icon="add" aria-hidden="true"></span><span>Add scene</span></button>
+        </div>
+        <div class="rail-group">
+          <button class="nav-button" type="button" data-view="workflow"><span class="icon" data-icon="workflow" aria-hidden="true"></span><span>GitHub workflow</span></button>
+          <button class="nav-button" type="button" data-view="summary"><span class="icon" data-icon="summary" aria-hidden="true"></span><span>Summary</span></button>
+        </div>
+      </nav>
+      <section class="panel" id="editor" tabindex="-1" aria-labelledby="panel-title"></section>
+    </div>
+  </main>
+  <div class="feedback" id="feedback" role="status"></div>
+  <dialog id="remove-dialog" aria-labelledby="remove-title">
+    <h2 id="remove-title">Remove this scene?</h2>
+    <p>The scene and its notes will be removed from your draft.</p>
+    <form method="dialog" class="dialog-actions">
+      <button class="button" value="cancel" autofocus>Cancel</button>
+      <button class="button danger" value="remove">Remove scene</button>
+    </form>
+  </dialog>
+  <article class="print-document" id="print-document"></article>
+  <script>
+const overviewFields = [
+  {
+    key: 'title',
+    label: 'Simulation title',
+    placeholder: 'Enter the simulation title',
+  },
+  {
+    key: 'course',
+    label: 'Course and module',
+    placeholder: 'Course name, number, and module, if applicable',
+  },
+  {
+    key: 'purpose',
+    label: 'Purpose of the simulation',
+    placeholder: 'What should students learn or practice in this simulation?',
+    type: 'textarea',
+  },
+  {
+    key: 'hosting',
+    label: 'Hosting platforms',
+    placeholder: 'For example, Canvas, ThingLink, or both',
+  },
+  {
+    key: 'access',
+    label: 'Simulation access',
+    placeholder: 'Add the simulation link and explain where students will find it',
+    type: 'textarea',
+  },
+  {
+    key: 'tools',
+    label: 'Supporting tools or platforms',
+    placeholder: 'List tools for activities, student responses, or media',
+    type: 'textarea',
+  },
+];
+
+const sceneGroups = [
+  {
+    title: 'Scene purpose',
+    fields: [
+      {
+        key: 'purpose',
+        label: 'Purpose of the scene',
+        placeholder: 'What will this scene accomplish?',
+        type: 'textarea',
+      },
+    ],
+  },
+  {
+    title: 'Learning alignment',
+    fields: [
+      {
+        key: 'outcome',
+        label: 'Course learning outcome',
+        placeholder: 'Outcome number and wording',
+        type: 'textarea',
+      },
+      {
+        key: 'objective',
+        label: 'Module learning objective, if applicable',
+        placeholder: 'Objective number and wording',
+        type: 'textarea',
+      },
+      {
+        key: 'alignment',
+        label: 'How the scene supports the outcome or objective',
+        placeholder: 'Connect the activity to what students will learn or practice',
+        type: 'textarea',
+      },
+    ],
+  },
+  {
+    title: 'Student experience',
+    fields: [
+      {
+        key: 'studentView',
+        label: 'How students see the scene',
+        placeholder: 'Add a link to the scene or a screenshot, or describe the student view',
+        type: 'textarea',
+      },
+      {
+        key: 'instructions',
+        label: 'Student instructions',
+        placeholder: 'Tell students what to do, what to submit or save, and how to proceed',
+        type: 'textarea',
+      },
+    ],
+  },
+  {
+    title: 'Scene introduction',
+    fields: [
+      {
+        key: 'introFormat',
+        label: 'Introduction format',
+        placeholder: 'Video, audio, or text',
+      },
+      {
+        key: 'introLocation',
+        label: 'Introduction link or location',
+        placeholder: 'Where will students find the introduction?',
+      },
+      {
+        key: 'introScript',
+        label: 'Introduction script',
+        placeholder: 'Write the script in paragraphs',
+        type: 'textarea',
+      },
+    ],
+  },
+  {
+    title: 'Additional details',
+    fields: [
+      {
+        key: 'details',
+        label: 'Additional scene details',
+        placeholder: 'Record any other notes for this scene',
+        type: 'textarea',
+      },
+    ],
+  },
+];
+
+const projectFields = [
+  {
+    key: 'github',
+    label: 'GitHub project link, if used',
+    placeholder: 'https://github.com/owner/repository',
+  },
+  {
+    key: 'activity',
+    label: 'Student activity link or Canvas page',
+    placeholder: 'Add the student-facing URL or Canvas page name',
+  },
+  {
+    key: 'location',
+    label: 'Scene or location in the simulation',
+    placeholder: 'Where will students encounter this activity?',
+  },
+  {
+    key: 'owner',
+    label: 'Owner and last tested',
+    placeholder: 'Name and date',
+  },
+];
+
+const workflowHtml = `
+  <h3>Choose Canvas or GitHub Pages</h3>
+  <p>Choose your hosting approach before asking generative AI to build the activity.</p>
+  <ul>
+    <li><strong>Canvas.</strong> Use the HTML and inline styles supported by the Canvas Rich Content Editor. Ask for an HTML fragment that can be pasted into Canvas and works without JavaScript. <a href="https://community.instructure.com/en/instructure/kb/articles/387066-canvas-html-editor-allowlist" target="_blank" rel="noopener noreferrer">Canvas HTML Editor allowlist</a></li>
+    <li><strong>GitHub Pages.</strong> Host activities that use JavaScript, such as search or dynamic comparisons, on GitHub Pages. Link to the published activity from Canvas or embed it if your course permits it. <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages" target="_blank" rel="noopener noreferrer">About GitHub Pages</a></li>
+  </ul>
+  <h3>Build with generative AI</h3>
+  <ol>
+    <li>Describe the goal, audience, student actions, inputs, expected results, calculation rules, and hosting needs.</li>
+    <li>Build one complete student path first. Review the content and code, then try examples with known answers.</li>
+    <li>Request one change at a time and describe which behavior to preserve. Retest each revision and keep the last working version.</li>
+  </ol>
+  <h3>Test, publish, and maintain</h3>
+  <ul>
+    <li><strong>Test.</strong> Check accuracy, directions, links, keyboard access, and readable text. Specify what students save or submit and where it goes.</li>
+    <li><strong>Publish.</strong> Confirm who can open the activity. Keep student information and passwords out of the project. Add the student link to the simulation and test the complete path.</li>
+    <li><strong>Maintain.</strong> Assign an owner, keep a record of changes, and check the activity before each course offering.</li>
+  </ul>
+  <details>
+    <summary>Publish with GitHub Pages</summary>
+    <p>Use this workflow after testing an activity you can publish in a public repository.</p>
+    <ol>
+      <li>Choose <strong>New repository</strong>, select an owner, name the repository, select <strong>Public</strong>, and create it.</li>
+      <li>Add the app files, including <code>index.html</code> at the top level for the Static HTML template, and commit the changes.</li>
+      <li>Open <strong>Settings</strong>, then <strong>Pages</strong>. Under <strong>Build and deployment</strong>, select <strong>GitHub Actions</strong> as the source.</li>
+      <li>Find <strong>Static HTML</strong>, select <strong>Configure</strong>, and commit the workflow to the default branch.</li>
+      <li>Open <strong>Actions</strong> and look for the green checkmark on the latest deployment.</li>
+      <li>Return to <strong>Settings</strong>, then <strong>Pages</strong>, and select <strong>Visit site</strong>. Test the activity and add the published link to the simulation.</li>
+    </ol>
+    <ul>
+      <li><a href="https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site" target="_blank" rel="noopener noreferrer">Create a Pages site</a></li>
+      <li><a href="https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site" target="_blank" rel="noopener noreferrer">Configure publishing</a></li>
+      <li><a href="https://docs.github.com/en/actions/how-tos/write-workflows/use-workflow-templates" target="_blank" rel="noopener noreferrer">Use workflow templates</a></li>
+      <li><a href="https://github.github.com/workshops/actions-for-dev/index.html#configuring-the-workflow" target="_blank" rel="noopener noreferrer">Static HTML walkthrough</a></li>
+    </ul>
+  </details>
+`;
+const icons = {
+  overview: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16m-9 0v11"/>',
+  scene: '<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/>',
+  add: '<path d="M12 5v14M5 12h14"/>',
+  workflow: '<path d="M6 8v8m12-8v2a4 4 0 0 1-4 4H6"/><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/>',
+  summary: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6m-6 4h6m-6 4h4"/>',
+  print: '<path d="M6 8V3h12v5M6 17H3v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7h-3m-12-3h12v7H6zm11-3h1"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+  save: '<path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4"/>',
+  check: '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
+  trash: '<path d="M4 7h16m-14 0 1 14h10l1-14m-9 0V4h6v3m-5 4v6m4-6v6"/>',
+};
+
+const storageKey = 'simulation-planner.draft.v1';
+const sceneTitleField = { key: 'title', label: 'Scene title', placeholder: 'Enter the scene title' };
+const editor = document.getElementById('editor');
+const sceneNavigation = document.getElementById('scene-nav');
+const feedback = document.getElementById('feedback');
+const removeDialog = document.getElementById('remove-dialog');
+const printDocument = document.getElementById('print-document');
+const saveState = document.getElementById('save-state');
+const saveMessage = document.getElementById('save-message');
+let activeView = 'overview';
+let feedbackTimer;
+let pendingRemoval = null;
+
+function icon(name) {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + icons[name] + '</svg>';
+}
+
+function createElement(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function say(message) {
+  clearTimeout(feedbackTimer);
+  feedback.textContent = message;
+  feedbackTimer = setTimeout(() => { feedback.textContent = ''; }, 5500);
+}
+
+function showStorageUnavailable() {
+  saveState.setAttribute('data-unavailable', '');
+  saveMessage.textContent = 'Draft saving unavailable';
+}
+
+function loadDraft() {
+  const initial = { overview: {}, scenes: [1, 2, 3].map(number => ({ id: 'scene-' + number, values: {} })), project: {} };
+  let stored;
+  try {
+    stored = localStorage.getItem(storageKey);
+  } catch {
+    showStorageUnavailable();
+    return initial;
+  }
+  if (!stored) return initial;
+  try {
+    const draft = JSON.parse(stored);
+    if (!draft.overview || !Array.isArray(draft.scenes) || !draft.project) return initial;
+    saveMessage.textContent = 'Draft saved in this browser';
+    return draft;
+  } catch {
+    return initial;
+  }
+}
+
+const draft = loadDraft();
+
+function saveDraft() {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(draft));
+    saveState.removeAttribute('data-unavailable');
+    saveMessage.textContent = 'Draft saved in this browser';
+  } catch {
+    showStorageUnavailable();
+  }
+}
+
+function fieldValue(values, key) {
+  return typeof values[key] === 'string' ? values[key].trim() : '';
+}
+
+function sceneName(scene, index, includeTitle = true) {
+  const number = 'Scene ' + (index + 1);
+  const title = fieldValue(scene.values, 'title');
+  return includeTitle && title ? number + ' · ' + title : number;
+}
+
+function updateNavigation() {
+  sceneNavigation.replaceChildren();
+  draft.scenes.forEach((scene, index) => {
+    const button = createElement('button', 'nav-button');
+    const mark = createElement('span', 'icon');
+    mark.setAttribute('aria-hidden', 'true');
+    mark.innerHTML = icon('scene');
+    button.type = 'button';
+    button.dataset.view = scene.id;
+    button.append(mark, createElement('span', '', sceneName(scene, index)));
+    sceneNavigation.append(button);
+  });
+  for (const button of document.querySelectorAll('[data-view]')) {
+    if (button.dataset.view === activeView) {
+      button.setAttribute('aria-current', 'true');
+      if (sceneNavigation.contains(button)) {
+        const offset = button.offsetTop - sceneNavigation.offsetTop;
+        if (offset < sceneNavigation.scrollTop || offset + button.offsetHeight > sceneNavigation.scrollTop + sceneNavigation.clientHeight) {
+          sceneNavigation.scrollTop = Math.max(0, offset - sceneNavigation.clientHeight + button.offsetHeight);
+        }
+      }
+    } else {
+      button.removeAttribute('aria-current');
+    }
+  }
+}
+
+function panelHeader(title, description) {
+  const header = createElement('div', 'panel-header');
+  const copy = createElement('div');
+  const heading = createElement('h2', '', title);
+  heading.id = 'panel-title';
+  heading.tabIndex = -1;
+  copy.append(heading);
+  if (description) copy.append(createElement('p', '', description));
+  header.append(copy);
+  editor.append(header);
+  return header;
+}
+
+function renderFields(fields, values, wideKeys = []) {
+  const grid = createElement('div', 'field-grid');
+  for (const field of fields) {
+    const row = createElement('div', wideKeys.includes(field.key) ? 'field wide' : 'field');
+    const label = createElement('label', '', field.label);
+    const control = createElement(field.type === 'textarea' ? 'textarea' : 'input');
+    control.id = 'field-' + field.key;
+    label.htmlFor = control.id;
+    control.placeholder = field.placeholder;
+    control.value = values[field.key] ?? '';
+    if (field.key === 'introScript') control.className = 'tall';
+    control.addEventListener('input', () => {
+      values[field.key] = control.value;
+      saveDraft();
+      if (field === sceneTitleField) updateNavigation();
+    });
+    row.append(label, control);
+    grid.append(row);
+  }
+  return grid;
+}
+
+function renderGroup(title, fields, values, wideKeys) {
+  const group = createElement('section', 'field-group');
+  group.append(createElement('h3', '', title), renderFields(fields, values, wideKeys));
+  editor.append(group);
+}
+
+function renderOverview() {
+  panelHeader('Simulation overview', 'Describe the purpose, course context, and how students will access the simulation.');
+  editor.append(renderFields(overviewFields, draft.overview, ['purpose', 'hosting']));
+}
+
+function renderScene(scene, index) {
+  const header = panelHeader(sceneName(scene, index, false), 'Plan what students will see, do, and learn in this scene.');
+  const remove = createElement('button', 'text-button');
+  remove.type = 'button';
+  remove.dataset.action = 'remove';
+  remove.innerHTML = '<span class="icon" aria-hidden="true">' + icon('trash') + '</span>Remove scene';
+  header.append(remove);
+  editor.append(renderFields([sceneTitleField], scene.values, ['title']));
+
+  const wideKeys = ['purpose', 'alignment', 'introScript', 'details'];
+  for (const group of sceneGroups) renderGroup(group.title, group.fields, scene.values, wideKeys);
+}
+
+function renderWorkflow() {
+  panelHeader('GitHub workflow', 'Record where the activity will live and who will maintain it.');
+  renderGroup('Project details', projectFields, draft.project);
+  const guide = createElement('div', 'workflow-guidance');
+  guide.innerHTML = workflowHtml;
+  editor.append(guide);
+}
+
+function filledFields(fields, values) {
+  return fields.map(field => ({ label: field.label, value: fieldValue(values, field.key) })).filter(field => field.value);
+}
+
+function summarySections() {
+  const overview = filledFields(overviewFields, draft.overview);
+  const scenes = draft.scenes.flatMap((scene, index) => {
+    const fields = filledFields(sceneGroups.flatMap(group => group.fields), scene.values);
+    return fields.length || fieldValue(scene.values, 'title') ? [{ title: sceneName(scene, index), fields }] : [];
+  });
+  const project = filledFields(projectFields, draft.project);
+  return [
+    ...(overview.length ? [{ title: 'Simulation overview', fields: overview }] : []),
+    ...scenes,
+    ...(project.length ? [{ title: 'Project details', fields: project }] : []),
+  ];
+}
+
+const emptySummary = 'No planning details have been entered yet.';
+
+function summaryText(sections = summarySections()) {
+  const blocks = sections.map(section => [
+    section.title,
+    ...section.fields.map(field => field.label + '\n' + field.value),
+  ].join('\n\n'));
+  return ['Simulation plan', ...(blocks.length ? blocks : [emptySummary])].join('\n\n');
+}
+
+function renderSummary() {
+  panelHeader('Summary', 'Review and export the details you’ve entered.');
+  const paper = createElement('div', 'summary-paper');
+  const content = createElement('pre', 'summary-text', summaryText());
+  content.id = 'summary-text';
+  content.tabIndex = 0;
+  content.setAttribute('aria-label', 'Simulation plan text');
+  paper.append(content);
+
+  const actions = createElement('div', 'summary-actions');
+  const save = createElement('button', 'button');
+  save.type = 'button';
+  save.dataset.action = 'download';
+  save.innerHTML = '<span class="icon" aria-hidden="true">' + icon('save') + '</span>Save text';
+  actions.append(save);
+  editor.append(paper, actions);
+}
+
+function switchView(view, focusTarget = 'panel-title') {
+  activeView = view;
+  editor.replaceChildren();
+  switch (view) {
+    case 'overview':
+      renderOverview();
+      break;
+    case 'workflow':
+      renderWorkflow();
+      break;
+    case 'summary':
+      renderSummary();
+      break;
+    default: {
+      const index = draft.scenes.findIndex(scene => scene.id === view);
+      renderScene(draft.scenes[index], index);
+    }
+  }
+  updateNavigation();
+  if (focusTarget) document.getElementById(focusTarget)?.focus();
+}
+
+function addScene() {
+  let number = draft.scenes.length + 1;
+  while (draft.scenes.some(scene => scene.id === 'scene-' + number)) number += 1;
+  const scene = { id: 'scene-' + number, values: {} };
+  draft.scenes.push(scene);
+  saveDraft();
+  switchView(scene.id, 'field-title');
+  say('Scene ' + draft.scenes.length + ' added.');
+}
+
+function removeScene(sceneId) {
+  const index = draft.scenes.findIndex(scene => scene.id === sceneId);
+  if (index === -1) return;
+  draft.scenes.splice(index, 1);
+  saveDraft();
+  switchView(draft.scenes[index]?.id ?? draft.scenes[index - 1]?.id ?? 'overview');
+  say('Scene ' + (index + 1) + ' removed.');
+}
+
+function requestRemoval() {
+  const scene = draft.scenes.find(item => item.id === activeView);
+  if (!Object.keys(scene.values).some(key => fieldValue(scene.values, key))) {
+    removeScene(scene.id);
+    return;
+  }
+  pendingRemoval = scene.id;
+  removeDialog.returnValue = '';
+  removeDialog.showModal();
+}
+
+removeDialog.addEventListener('close', () => {
+  if (removeDialog.returnValue === 'remove') removeScene(pendingRemoval);
+  pendingRemoval = null;
+});
+
+function updatePrintDocument() {
+  printDocument.replaceChildren(createElement('h1', '', 'Simulation plan'));
+  const sections = summarySections();
+  if (!sections.length) printDocument.append(createElement('p', '', emptySummary));
+  for (const section of sections) {
+    printDocument.append(createElement('h2', '', section.title));
+    for (const field of section.fields) {
+      printDocument.append(createElement('h3', '', field.label), createElement('p', '', field.value));
+    }
+  }
+}
+
+window.addEventListener('beforeprint', updatePrintDocument);
+
+function printSummary() {
+  updatePrintDocument();
+  window.print();
+}
+
+function selectSummary() {
+  switchView('summary', 'summary-text');
+  const content = document.getElementById('summary-text');
+  const range = document.createRange();
+  range.selectNodeContents(content);
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+async function copySummary() {
+  try {
+    await navigator.clipboard.writeText(summaryText());
+    say('Summary copied.');
+    return;
+  } catch {
+    selectSummary();
+  }
+  try {
+    if (document.execCommand('copy')) {
+      say('Summary copied.');
+      return;
+    }
+  } catch {
+    // Leave the text selected for the browser’s copy command.
+  }
+  say('Summary selected. Use your browser’s Copy command.');
+}
+
+function downloadSummary() {
+  const url = URL.createObjectURL(new Blob([summaryText() + '\n'], { type: 'text/plain;charset=utf-8' }));
+  const link = createElement('a');
+  link.href = url;
+  link.download = 'simulation-plan.txt';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  say('Text download started.');
+}
+
+document.addEventListener('click', event => {
+  const button = event.target.closest('button[data-action], button[data-view]');
+  if (!button) return;
+  if (button.dataset.view) {
+    switchView(button.dataset.view);
+    return;
+  }
+  switch (button.dataset.action) {
+    case 'add': addScene(); break;
+    case 'remove': requestRemoval(); break;
+    case 'print': printSummary(); break;
+    case 'copy': copySummary(); break;
+    case 'download': downloadSummary(); break;
+  }
+});
+
+document.getElementById('brand-icon').innerHTML = '<span class="icon">' + icon('overview') + '</span>';
+document.getElementById('save-icon').innerHTML = icon('check');
+for (const node of document.querySelectorAll('[data-icon]')) node.innerHTML = icon(node.dataset.icon);
+
+document.getElementById('workspace').hidden = false;
+switchView('overview', null);
+  </script>
+</body>
+</html>
